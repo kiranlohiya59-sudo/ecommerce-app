@@ -1,22 +1,25 @@
-
 package com.example.ecommerceapp.controller;
 
-import com.example.ecommerceapp.dto.ProductDTO;
+import dto.ProductDTO;
 import com.example.ecommerceapp.entity.Product;
 import com.example.ecommerceapp.mapper.ProductMapper;
 import com.example.ecommerceapp.repository.ProductRepository;
 
 import jakarta.validation.Valid;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/products")
+@CrossOrigin(origins = "http://localhost:5173")
 public class ProductController {
 
     private static final Logger logger =
@@ -33,15 +36,14 @@ public class ProductController {
     public ResponseEntity<ProductDTO> createProduct(
             @Valid @RequestBody ProductDTO productDTO) {
 
-        logger.info("Creating a new product");
+        logger.info("Creating product: {}", productDTO.getName());
 
         Product product = ProductMapper.toEntity(productDTO);
+
         Product savedProduct = productRepository.save(product);
 
-        logger.info("Product created successfully with ID: {}",
-                savedProduct.getId());
-
-        return ResponseEntity.status(HttpStatus.CREATED)
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
                 .body(ProductMapper.toDTO(savedProduct));
     }
 
@@ -56,28 +58,23 @@ public class ProductController {
                 .map(ProductMapper::toDTO)
                 .toList();
 
-        logger.info("Total products found: {}", products.size());
-
         return ResponseEntity.ok(products);
     }
 
-    // READ BY ID
+    // READ ONE
     @GetMapping("/{id}")
     public ResponseEntity<ProductDTO> getProductById(
             @PathVariable Long id) {
 
-        logger.info("Fetching product with ID: {}", id);
+        logger.info("Fetching product with id: {}", id);
 
-        return productRepository.findById(id)
-                .map(product -> {
-                    logger.info("Product found with ID: {}", id);
-                    return ResponseEntity.ok(
-                            ProductMapper.toDTO(product));
-                })
-                .orElseGet(() -> {
-                    logger.warn("Product not found with ID: {}", id);
-                    return ResponseEntity.notFound().build();
-                });
+        Product product = productRepository.findById(id)
+                .orElseThrow(() ->
+                        new RuntimeException(
+                                "Product not found with id: " + id
+                        ));
+
+        return ResponseEntity.ok(ProductMapper.toDTO(product));
     }
 
     // UPDATE
@@ -86,29 +83,24 @@ public class ProductController {
             @PathVariable Long id,
             @Valid @RequestBody ProductDTO productDTO) {
 
-        logger.info("Updating product with ID: {}", id);
+        logger.info("Updating product with id: {}", id);
 
-        return productRepository.findById(id)
-                .map(existingProduct -> {
-                    existingProduct.setName(productDTO.getName());
-                    existingProduct.setPrice(productDTO.getPrice());
-                    existingProduct.setDescription(
-                            productDTO.getDescription());
+        Product existingProduct = productRepository.findById(id)
+                .orElseThrow(() ->
+                        new RuntimeException(
+                                "Product not found with id: " + id
+                        ));
 
-                    Product updatedProduct =
-                            productRepository.save(existingProduct);
+        existingProduct.setName(productDTO.getName());
+        existingProduct.setPrice(productDTO.getPrice());
+        existingProduct.setDescription(productDTO.getDescription());
 
-                    logger.info(
-                            "Product updated successfully with ID: {}", id);
+        Product updatedProduct =
+                productRepository.save(existingProduct);
 
-                    return ResponseEntity.ok(
-                            ProductMapper.toDTO(updatedProduct));
-                })
-                .orElseGet(() -> {
-                    logger.warn(
-                            "Cannot update. Product not found with ID: {}", id);
-                    return ResponseEntity.notFound().build();
-                });
+        return ResponseEntity.ok(
+                ProductMapper.toDTO(updatedProduct)
+        );
     }
 
     // DELETE
@@ -116,17 +108,15 @@ public class ProductController {
     public ResponseEntity<Void> deleteProduct(
             @PathVariable Long id) {
 
-        logger.info("Deleting product with ID: {}", id);
+        logger.info("Deleting product with id: {}", id);
 
-        if (!productRepository.existsById(id)) {
-            logger.warn(
-                    "Cannot delete. Product not found with ID: {}", id);
-            return ResponseEntity.notFound().build();
-        }
+        Product product = productRepository.findById(id)
+                .orElseThrow(() ->
+                        new RuntimeException(
+                                "Product not found with id: " + id
+                        ));
 
-        productRepository.deleteById(id);
-
-        logger.info("Product deleted successfully with ID: {}", id);
+        productRepository.delete(product);
 
         return ResponseEntity.noContent().build();
     }
